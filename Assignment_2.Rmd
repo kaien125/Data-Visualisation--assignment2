@@ -1,0 +1,158 @@
+---
+title: "Assignment 2"
+subtitle: "Deconstruct, Reconstruct Web Report"
+author: "Wenkai Li s3815738"
+output: html_document
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+# Do not change these settings!
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+### {.tabset} 
+
+Click the **Original**, **Code** and **Reconstruction** tabs to read about the issues and how they were fixed. 
+
+#### Original
+
+<br>
+<center>
+<img src="Sorry Sweetie.png" width="80%">
+</center>
+<center>*Source: SORRY SWEETIE -- @IvettAlexa (2019).*</center>
+<br>
+
+**Objective**
+
+The objective is to show faculty female ratio in art departments of US universities.
+Targeted audience are female academics or artists who are working for or considering looking for a job in US universities.
+
+The visualisation chosen had the following three main issues:
+
+* The title and annotation are misleading. It guides the audience to believe that gender is the only reason that it is hard for female academics or artists to find a job in US universities. 
+* Colour selection. The gradient colour is not necessary. Normally gradient colour represents quantitative data change. In this case, it confuses the audience. The total percentage is represented by dark gray circle which is not obvious in the black background.
+* Using area to represent main quantitative variable has low accuracy. It is not easy to visually compare areas across universities. In addition, the inner circle area seems like it occupies a much larger proportion.  
+
+**Reference**
+
+* SORRY SWEETIE -- @IvettAlexa (2019). *SORRY SWEETIE*. Retrieved April 10, 2020, from Tableau Public website: https://public.tableau.com/profile/yvette#!/vizhome/SORRYSWEETIE/SorrySweetie
+
+#### Code
+
+The following code was used to fix the issues identified in the original. 
+
+```{r}
+library(ggplot2)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(magrittr)
+library(cowplot)
+library(stringr)
+library(scales)
+
+All <- read_csv("All full-time instructional staff.csv")
+
+All <- select (All, 2,5,6,7)
+
+colnames(All) <- c("University","Total Staff","Total Male Staff", "Total Female Staff")
+
+All <-mutate(All, "Total Female Ratio" = round(All$`Total Female Staff`/All$`Total Staff`,2),"Total Male Ratio" = round(All$`Total Male Staff`/All$`Total Staff`,2))
+
+All <- All %>% arrange(desc(All$`Total Staff`))
+
+All10 <- All %>% top_n(10,All$`Total Staff`)
+
+All10 <- All10 %>% arrange(desc(All10$`Total Female Ratio`))
+
+new_hire <- read_csv("Instructional staff new hire.csv")
+
+new_hire <- select (new_hire, 2,5,6,7)
+
+colnames(new_hire) <- c("University","New Hire Total Staff","New Hire Male Staff", "New Hire Female Staff")
+
+new_hire <-mutate(new_hire, "New Hire Female Ratio" =  round(new_hire$`New Hire Female Staff`/new_hire$`New Hire Total Staff`,2),"New Hire Male Ratio" =  round(new_hire$`New Hire Male Staff`/new_hire$`New Hire Total Staff`,2))
+
+new_hire <- new_hire %>% arrange(desc(new_hire$`New Hire Total Staff`))
+
+dataviz <- All10 %>% left_join(new_hire, by="University")
+
+dataviz$University <- factor(dataviz$University, levels = dataviz$University[order(dataviz$`Total Female Ratio` )])
+
+total_ratio <- dataviz %>% select("University", "Total Female Ratio","Total Male Ratio")
+
+total_ratio <- total_ratio %>% gather("Total Female Ratio","Total Male Ratio", key = "Gender", value = "Total Gender Ratio" )
+
+total_ratio <- mutate(total_ratio,"Type"="Gender Ratio in Total")
+
+total_ratio$Gender <- str_replace(total_ratio$Gender,"Total Female Ratio","Female")
+
+total_ratio$Gender <- str_replace(total_ratio$Gender,"Total Male Ratio","Male")
+
+colnames(total_ratio)[colnames(total_ratio) == "Total Gender Ratio"] <- "Gender Ratio"
+
+new_hire_ratio <- dataviz %>% select("University", "New Hire Female Ratio","New Hire Male Ratio")
+
+new_hire_ratio <- new_hire_ratio %>% gather("New Hire Female Ratio","New Hire Male Ratio", key = "Gender", value = "New Hire Gender Ratio" )
+
+new_hire_ratio <- mutate(new_hire_ratio,"Type"="Gender Ratio in New Hire")
+
+new_hire_ratio$Gender <- str_replace(new_hire_ratio$Gender,"New Hire Female Ratio","Female")
+
+new_hire_ratio$Gender <- str_replace(new_hire_ratio$Gender,"New Hire Male Ratio","Male")
+
+colnames(new_hire_ratio)[colnames(new_hire_ratio) == "New Hire Gender Ratio"] <- "Gender Ratio"
+
+dataviz1 <- rbind(total_ratio,new_hire_ratio)
+
+dataviz1$Type <- factor(dataviz1$Type, levels = c("Gender Ratio in Total","Gender Ratio in New Hire"),ordered = TRUE)
+
+dataviz1$Gender <- dataviz1$Gender %>%as.factor()
+
+datavizp1<- ggplot(dataviz1, aes(fill =Gender,x = University,y=`Gender Ratio` ))
+
+pal <- c("#fdb863", "#5e3c99")
+
+datavizp1 <-datavizp1 + geom_bar(position=position_dodge2(reverse = TRUE), 
+stat="identity",width = 0.7) + coord_flip()+ labs(title = "Instructional Staff Gender Ratio - 2018",
+subtitle = "Gender ratio of total and new hired staff in 10 large US unversities", 
+caption = "Source: National Center for Education Statistics (2018) - https://nces.ed.gov/ipeds/use-the-data")+theme(plot.title = element_text(hjust = 0,size = 14,face ="bold",margin=margin(0,0,2,0)),
+plot.title.position = "plot",
+plot.subtitle= element_text(hjust=0,size=10,margin=margin(0,0,-14,0)),
+plot.caption = element_text (size = 6),
+legend.key.size = unit(.3, "cm"),
+legend.key.width = unit(.6, "cm"), 
+legend.justification = c(0.9),
+legend.text = element_text(size=7),
+legend.title = element_text(size=8),
+legend.position="top",
+legend.direction = "horizontal",
+strip.background = element_blank(),
+strip.text.x = element_text(size = 8),
+axis.title.x=element_blank(),
+axis.text.x=element_blank(),
+axis.title.y=element_blank(),
+axis.text.y=element_text(size = 8),
+axis.ticks.x=element_blank(),
+axis.ticks.y=element_blank(),
+panel.grid.minor = element_blank(),
+panel.background = element_rect(fill = 'white', 
+colour = 'white'))+ geom_text(aes(label = paste0(`Gender Ratio`*100,"%")),
+position = position_dodge(width = -0.8),hjust = 0,size = 2)+ facet_grid(~ Type)+ scale_fill_discrete(name = "") + scale_fill_manual(values = pal)  
+
+```
+
+**Data Reference**
+
+* National Center for Education Statistics (2018), *Integrated Postsecondary Education Data System - Compare Institutions*, Retrieved April 14, 2020, from U.S. Department of Education website: https://nces.ed.gov/ipeds/use-the-data
+
+#### Reconstruction
+
+The following plot fixes the main issues in the original.
+
+```{r fig.align="center", echo = FALSE}
+datavizp1
+```
+
